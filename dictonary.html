@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Dictionary</title>
+    <!-- Link to the Web App Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <!-- Favicon and Apple Touch Icon (for PWA) -->
+    <link rel="icon" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Custom styles for the Inter font and basic body setup */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Very light gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            box-sizing: border-box;
+            transition: background-color 0.3s ease;
+        }
+        /* Ensure elements have rounded corners */
+        .rounded-lg {
+            border-radius: 0.5rem;
+        }
+        /* Custom scrollbar for definition area and favorites list */
+        .definition-area::-webkit-scrollbar, .settings-favorites-list::-webkit-scrollbar, .game-message-area::-webkit-scrollbar, .llm-output-area::-webkit-scrollbar {
+            width: 6px; /* Thinner scrollbar */
+        }
+        .definition-area::-webkit-scrollbar-track, .settings-favorites-list::-webkit-scrollbar-track, .game-message-area::-webkit-scrollbar-track, .llm-output-area::-webkit-scrollbar-track {
+            background: #e2e8f0; /* Light gray track */
+            border-radius: 10px;
+        }
+        .definition-area::-webkit-scrollbar-thumb, .settings-favorites-list::-webkit-scrollbar-thumb, .game-message-area::-webkit-scrollbar-thumb, .llm-output-area::-webkit-scrollbar-thumb {
+            background: #cbd5e0; /* Lighter gray thumb */
+            border-radius: 10px;
+        }
+        .definition-area::-webkit-scrollbar-thumb:hover, .settings-favorites-list::-webkit-scrollbar-thumb:hover, .game-message-area::-webkit-scrollbar-thumb:hover, .llm-output-area::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; /* Slightly darker on hover */
+        }
+        /* Style for clickable favorite words */
+        .favorite-word-item {
+            cursor: pointer;
+            padding: 0.25rem 0;
+            transition: background-color 0.15s ease-in-out;
+        }
+        .favorite-word-item:hover {
+            background-color: #f3f4f6; /* Very light gray on hover */
+            border-radius: 0.25rem;
+        }
+
+        /* Responsive padding for body on larger screens */
+        @media (min-width: 640px) {
+            body {
+                padding: 2rem;
+            }
+        }
+
+        /* Dark Mode Styles */
+        html.dark {
+            background-color: #1f2937; /* Darker body background */
+        }
+        html.dark body {
+            background-color: #1f2937;
+        }
+        html.dark .bg-white {
+            background-color: #374151; /* Darker card background */
+            border-color: #4b5563; /* Darker border */
+            box-shadow: none; /* Remove shadow in dark mode */
+        }
+        html.dark .text-gray-800 {
+            color: #f3f4f6; /* Lighter text */
+        }
+        html.dark .text-gray-700 {
+            color: #d1d5db; /* Lighter text for labels */
+        }
+        html.dark .text-gray-600 {
+            color: #9ca3af; /* Lighter text for subtle info */
+        }
+        html.dark .bg-gray-200 {
+            background-color: #4b5563; /* Darker button background */
+            color: #d1d5db;
+        }
+        html.dark .hover\:bg-gray-300:hover {
+            background-color: #6b7280; /* Darker hover */
+        }
+        html.dark .border-gray-300 {
+            border-color: #4b5563; /* Darker input border */
+        }
+        html.dark input, html.dark textarea {
+            background-color: #4b5563; /* Darker input background */
+            color: #f3f4f6; /* Lighter input text */
+        }
+        html.dark input::placeholder, html.dark textarea::placeholder {
+            color: #9ca3af; /* Lighter placeholder text */
+        }
+        /* Adjusted background for definition area to grayscale */
+        html.dark .bg-gray-50-def { /* Custom class for definition area */
+            background-color: #2d3748; /* Tailwind gray-800 */
+            border-color: #4b5563; /* Tailwind gray-600 */
+        }
+        /* Adjusted background for favorites list to grayscale */
+        html.dark .bg-gray-50-fav { /* Custom class for favorites list CONTAINER */
+            background-color: #1a202c; /* Tailwind gray-900 */
+            border-color: #374151; /* Tailwind gray-700 */
+        }
+        html.dark .text-gray-400 {
+            color: #9ca3af; /* Lighter star icon */
+        }
+        /* Dark mode specific styles for favorite word items in settings */
+        html.dark .settings-favorites-list .bg-gray-100-fav-item { /* Custom class for favorite item background */
+            background-color: #2d3748; /* Tailwind gray-800 */
+        }
+        html.dark .settings-favorites-list .text-gray-800 {
+            color: #f3f4f6; /* Tailwind gray-100 for favorite word text */
+        }
+        html.dark .settings-favorites-list .text-red-500 {
+            color: #f87171; /* Lighter red for trash icon */
+        }
+        html.dark .settings-favorites-list .hover\:text-red-700:hover {
+            color: #fca5a5; /* Lighter hover for trash icon */
+        }
+
+        /* Dark mode for game modal */
+        html.dark .bg-gray-50-game { /* Custom class for game modal background */
+            background-color: #2d3748; /* Tailwind gray-800 */
+            border-color: #4b5563; /* Tailwind gray-600 */
+        }
+        html.dark .game-word-display {
+            color: #f3f4f6; /* Lighter text for word display */
+        }
+        html.dark .game-message-area {
+            background-color: #4a5568; /* Tailwind gray-700 */
+            border-color: #6b7280; /* Tailwind gray-500 */
+            color: #d1d5db;
+        }
+        html.dark .game-message-area::-webkit-scrollbar-track {
+            background: #4a5568;
+        }
+        html.dark .game-message-area::-webkit-scrollbar-thumb {
+            background: #9ca3af;
+        }
+        html.dark .game-message-area::-webkit-scrollbar-thumb:hover {
+            background: #d1d5db;
+        }
+
+        /* Dark mode for LLM output area */
+        html.dark .llm-output-area {
+            background-color: #4a5568; /* Tailwind gray-700 */
+            border-color: #6b7280; /* Tailwind gray-500 */
+            color: #d1d5db;
+        }
+
+        /* Minimalist button styles */
+        .btn-primary {
+            background-color: #1f2937; /* Dark gray/almost black */
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: none;
+        }
+        .btn-primary:hover {
+            background-color: #374151; /* Slightly lighter dark gray */
+            transform: translateY(-1px);
+        }
+        .btn-primary:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.5); /* Focus ring matches primary color */
+        }
+        html.dark .btn-primary {
+            background-color: #e5e7eb; /* Light gray in dark mode */
+            color: #1f2937;
+        }
+        html.dark .btn-primary:hover {
+            background-color: #d1d5db; /* Darker light gray on hover in dark mode */
+        }
+
+        .btn-secondary {
+            background-color: #e5e7eb; /* Light gray */
+            color: #374151; /* Dark gray text */
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: none;
+        }
+        .btn-secondary:hover {
+            background-color: #d1d5db; /* Darker gray */
+            transform: translateY(-1px);
+        }
+        .btn-secondary:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.5);
+        }
+        html.dark .btn-secondary {
+            background-color: #4b5563; /* Darker gray in dark mode */
+            color: #d1d5db;
+        }
+        html.dark .btn-secondary:hover {
+            background-color: #6b7280;
+        }
+
+        .btn-danger {
+            background-color: #ef4444; /* Red */
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: none;
+        }
+        .btn-danger:hover {
+            background-color: #dc2626; /* Darker red */
+            transform: translateY(-1px);
+        }
+        .btn-danger:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.5);
+        }
+        html.dark .btn-danger {
+            background-color: #f87171; /* Lighter red in dark mode */
+        }
+        html.dark .btn-danger:hover {
+            background-color: #ef4444; /* Original red on hover in dark mode */
+        }
+
+        .btn-accent-1 { /* For game button */
+            background-color: #1f2937; /* Dark gray/almost black */
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: none;
+        }
+        .btn-accent-1:hover {
+            background-color: #374151; /* Slightly lighter dark gray */
+            transform: translateY(-1px);
+        }
+        .btn-accent-1:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.5);
+        }
+        html.dark .btn-accent-1 {
+            background-color: #e5e7eb; /* Light gray in dark mode */
+            color: #1f2937;
+        }
+        html.dark .btn-accent-1:hover {
+            background-color: #d1d5db;
+        }
+
+        /* LLM feature buttons */
+        .btn-llm-1 { /* Elaborate */
+            background-color: #6b7280; /* Medium gray */
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: none;
+        }
+        .btn-llm-1:hover {
+            background-color: #4b5563; /* Darker gray */
+            transform: translateY(-1px);
+        }
+        .btn-llm-1:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.5);
+        }
+        html.dark .btn-llm-1 {
+            background-color: #9ca3af; /* Lighter gray in dark mode */
+        }
+        html.dark .btn-llm-1:hover {
+            background-color: #d1d5db;
+        }
+
+        .btn-llm-2 { /* Explain Simply */
+            background-color: #6b7280; /* Medium gray */
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            box-shadow: none;
+        }
+        .btn-llm-2:hover {
+            background-color: #4b5563; /* Darker gray */
+            transform: translateY(-1px);
+        }
+        .btn-llm-2:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.5);
+        }
+        html.dark .btn-llm-2 {
+            background-color: #9ca3af; /* Lighter gray in dark mode */
+        }
+        html.dark .btn-llm-2:hover {
+            background-color: #d1d5db;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen relative">
+    <div class="bg-white p-6 sm:p-8 rounded-lg shadow-md w-full max-w-sm md:max-w-md border border-gray-100">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-center text-gray-800 mb-6">Offline Dictionary</h1>
+
+        <!-- Settings Button -->
+        <button id="settingsButton"
+                class="absolute top-3 right-3 sm:top-4 sm:right-4 btn-secondary p-2 sm:p-3 rounded-full">
+            <i class="fas fa-cog text-lg sm:text-xl"></i>
+        </button>
+
+        <!-- Search Section -->
+        <div class="mb-6">
+            <label for="wordInput" class="block text-gray-700 text-sm font-semibold mb-2">Enter a word:</label>
+            <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
+                <input type="text" id="wordInput" placeholder="Type word here..."
+                       class="flex-grow p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 transition duration-200" autocomplete="off">
+                <button id="searchButton" class="btn-primary">
+                    Search
+                </button>
+            </div>
+        </div>
+
+        <!-- Definition Display Area -->
+        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 min-h-[100px] max-h-[250px] overflow-y-auto definition-area mb-6 relative bg-gray-50-def">
+            <p id="definitionOutput" class="text-gray-800 text-base leading-relaxed">
+                Start by searching for a word or adding a new one!
+            </p>
+            <!-- LLM Feature Buttons -->
+            <div class="flex flex-wrap justify-end gap-2 mt-4">
+                <button id="favoriteButton"
+                        class="p-2 text-gray-400 hover:text-gray-700 transition duration-200 hidden">
+                    <i class="far fa-star text-2xl"></i>
+                </button>
+                <button id="elaborateDefinitionButton"
+                        class="btn-llm-1 hidden">
+                    ✨ Elaborate
+                </button>
+                <button id="explainSimpleButton"
+                        class="btn-llm-2 hidden">
+                    ✨ Explain Simply
+                </button>
+            </div>
+
+            <!-- LLM Output Area -->
+            <div id="llmOutput" class="mt-4 p-3 bg-gray-100 rounded-lg border border-gray-200 llm-output-area text-gray-800 text-sm hidden">
+                <!-- LLM generated content will appear here -->
+            </div>
+        </div>
+
+        <!-- Message Box for user feedback -->
+        <div id="messageBox" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+            <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+                <p id="messageText" class="text-gray-800 text-lg mb-4"></p>
+                <div id="messageBoxButtons" class="flex justify-center space-x-3">
+                    <button id="closeMessageButton" class="btn-primary">
+                        OK
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+            <div class="bg-white p-8 rounded-lg shadow-xl max-w-sm w-full text-center">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Settings</h2>
+
+                <!-- Theme Toggle -->
+                <div class="mb-6 border-b border-gray-200 pb-4">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">Theme</h3>
+                    <button id="themeToggleButton"
+                            class="btn-secondary w-full">
+                        <i class="fas fa-moon mr-2" id="themeIcon"></i> <span id="themeText">Switch to Night Mode</span>
+                    </button>
+                </div>
+
+                <!-- Play Word Games Section -->
+                <div class="mb-6 border-b border-gray-200 pb-4">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">Games</h3>
+                    <div class="flex flex-col space-y-3">
+                        <button id="playWordGameButton"
+                                class="btn-accent-1 w-full">
+                            <i class="fas fa-gamepad mr-2"></i> Guess The Word
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Favorite Words in Settings (Collapsible) -->
+                <div class="mb-6 border-b border-gray-200 pb-4">
+                    <button id="toggleFavoritesButton"
+                            class="w-full flex justify-between items-center text-xl font-semibold text-gray-800 mb-3 bg-transparent border-none p-0 cursor-pointer focus:outline-none">
+                        <span>Your Favorite Words</span>
+                        <i id="favoritesToggleIcon" class="fas fa-chevron-down text-lg transition-transform duration-300"></i>
+                    </button>
+                    <div id="settingsFavoriteWordsList" class="bg-gray-50 p-4 rounded-lg border border-gray-200 min-h-[50px] max-h-[200px] overflow-y-auto settings-favorites-list text-left hidden bg-gray-50-fav">
+                        <p class="text-gray-600 text-sm">No favorite words yet.</p>
+                    </div>
+                </div>
+
+                <!-- Clear Data Button -->
+                <div class="mb-6">
+                    <button id="clearDataButton"
+                            class="btn-danger w-full">
+                        Clear All Dictionary Data
+                    </button>
+                </div>
+
+                <button id="closeSettingsButton" class="btn-primary">
+                    Close
+                </button>
+            </div>
+        </div>
+
+        <!-- Word Game Modal -->
+        <div id="wordGameModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
+            <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-sm md:max-w-md text-center">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Guess The Word!</h2>
+
+                <div class="bg-gray-50 p-6 rounded-lg border border-gray-200 mb-6 bg-gray-50-game">
+                    <p class="text-gray-700 text-lg mb-4">Guesses Left: <span id="guessesLeft" class="font-bold text-gray-700"></span></p>
+                    <p id="maskedWordDisplay" class="text-4xl font-extrabold tracking-widest text-gray-800 mb-6 game-word-display">_ _ _ _</p>
+                    <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 mb-4">
+                        <input type="text" id="guessInput" placeholder="Enter letter or word" maxlength="15"
+                               class="flex-grow p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 transition duration-200 text-center uppercase">
+                        <button id="submitGuessButton"
+                                class="btn-primary">
+                            Guess
+                        </button>
+                    </div>
+                    <div id="gameMessage" class="bg-gray-100 p-3 rounded-lg border border-gray-200 min-h-[40px] max-h-[100px] overflow-y-auto text-gray-700 text-sm game-message-area">
+                        Start guessing!
+                    </div>
+                </div>
+
+                <button id="restartWordGameButton"
+                        class="btn-primary mr-2">
+                    Restart Game
+                </button>
+                <button id="closeWordGameButton" class="btn-secondary">
+                    Close Game
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registered with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+
+        // Get references to DOM elements
+        const wordInput = document.getElementById('wordInput');
+        const searchButton = document.getElementById('searchButton');
+        const definitionOutput = document.getElementById('definitionOutput');
+        const favoriteButton = document.getElementById('favoriteButton');
+        const elaborateDefinitionButton = document.getElementById('elaborateDefinitionButton');
+        const explainSimpleButton = document.getElementById('explainSimpleButton');
+        const llmOutput = document.getElementById('llmOutput');
+
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const messageBoxButtons = document.getElementById('messageBoxButtons');
+        const closeMessageButton = document.getElementById('closeMessageButton');
+        const settingsButton = document.getElementById('settingsButton');
+        const settingsModal = document.getElementById('settingsModal');
+        const closeSettingsButton = document.getElementById('closeSettingsButton');
+        const clearDataButton = document.getElementById('clearDataButton');
+        const themeToggleButton = document.getElementById('themeToggleButton');
+        const themeIcon = document.getElementById('themeIcon');
+        const themeText = document.getElementById('themeText');
+        const toggleFavoritesButton = document.getElementById('toggleFavoritesButton');
+        const favoritesToggleIcon = document.getElementById('favoritesToggleIcon');
+        const settingsFavoriteWordsList = document.getElementById('settingsFavoriteWordsList');
+
+        // Guess The Word Game specific elements
+        const playWordGameButton = document.getElementById('playWordGameButton');
+        const wordGameModal = document.getElementById('wordGameModal');
+        const guessesLeftDisplay = document.getElementById('guessesLeft');
+        const maskedWordDisplay = document.getElementById('maskedWordDisplay');
+        const guessInput = document.getElementById('guessInput');
+        const submitGuessButton = document.getElementById('submitGuessButton');
+        const gameMessage = document.getElementById('gameMessage');
+        const restartWordGameButton = document.getElementById('restartWordGameButton');
+        const closeWordGameButton = document.getElementById('closeWordGameButton');
+
+        // Game state variables
+        let dictionary = {};
+        let currentSearchedWord = '';
+        let favoritesListVisible = false;
+
+        // Guess The Word Game state
+        let wordGameWord = '';
+        let wordGameMaskedWord = [];
+        let wordGameGuessedLetters = new Set();
+        let wordGameIncorrectGuesses = 0;
+        const maxIncorrectGuesses = 6;
+
+        /**
+         * Displays a custom message box instead of using alert().
+         * @param {string} message - The message to display.
+         */
+        function showMessageBox(message) {
+            messageText.textContent = message;
+            messageBox.classList.remove('hidden');
+            messageBoxButtons.innerHTML = '';
+            messageBoxButtons.appendChild(closeMessageButton);
+            closeMessageButton.style.display = 'inline-block';
+        }
+
+        // Close the message box when the OK button is clicked
+        closeMessageButton.addEventListener('click', () => {
+            messageBox.classList.add('hidden');
+        });
+
+        /**
+         * Loads the dictionary data from localStorage.
+         * If no data is found, it initializes with a few default words.
+         * It also updates old dictionary entries to the new object format.
+         */
+        function loadDictionary() {
+            try {
+                const storedDictionary = localStorage.getItem('offlineDictionary');
+                if (storedDictionary) {
+                    const parsed = JSON.parse(storedDictionary);
+                    for (const word in parsed) {
+                        if (typeof parsed[word] === 'string') {
+                            dictionary[word] = { definition: parsed[word], isFavorite: false };
+                        } else {
+                            dictionary[word] = parsed[word];
+                            if (typeof dictionary[word].isFavorite === 'undefined') {
+                                dictionary[word].isFavorite = false;
+                            }
+                        }
+                    }
+                } else {
+                    dictionary = {
+                        "hello": { definition: "A greeting, an expression of goodwill.", isFavorite: false },
+                        "world": { definition: "The earth, together with all of its countries and peoples.", isFavorite: false },
+                        "javascript": { definition: "A high-level, often just-in-time compiled language that conforms to the ECMAScript standard.", isFavorite: false },
+                        "offline": { definition: "Not connected to or controlled by a computer or telecommunication system.", isFavorite: false },
+                        "dictionary": { definition: "A book or electronic resource that lists the words of a language (typically in alphabetical order) and gives their meaning, or gives the equivalent words in a different language.", isFavorite: false },
+                        "programming": { definition: "The process of writing computer programs.", isFavorite: false },
+                        "responsive": { definition: "Designing web pages to look good on all devices.", isFavorite: false },
+                        "tailwind": { definition: "A utility-first CSS framework.", isFavorite: false },
+                        "storage": { definition: "The retention of retrievable data on a computer or other electronic system.", isFavorite: false },
+                        "algorithm": { definition: "A process or set of rules to be followed in calculations or other problem-solving operations.", isFavorite: false },
+                        "variable": { definition: "A data item that may take on more than one value during the runtime of a program.", isFavorite: false },
+                        "function": { definition: "A block of organized, reusable code that is used to perform a single, related action.", isFavorite: false },
+                        "paradigm": { definition: "A typical example or pattern of something; a pattern or model.", isFavorite: false },
+                        "abstract": { definition: "Existing in thought or as an idea but not having a physical or concrete existence.", isFavorite: false }
+                    };
+                    saveDictionary();
+                }
+            } catch (error) {
+                console.error("Error loading dictionary from localStorage:", error);
+                showMessageBox("Error loading dictionary. Your saved data might be corrupted.");
+                dictionary = {};
+            }
+        }
+
+        /**
+         * Saves the current dictionary object to localStorage.
+         */
+        function saveDictionary() {
+            try {
+                localStorage.setItem('offlineDictionary', JSON.stringify(dictionary));
+            } catch (error) {
+                console.error("Error saving dictionary to localStorage:", error);
+                showMessageBox("Error saving dictionary. Your browser's storage might be full.");
+            }
+        }
+
+        /**
+         * Searches for a word in the dictionary and displays its definition.
+         * Also updates the state of the favorite button and LLM buttons.
+         */
+        function searchWord() {
+            const word = wordInput.value.trim().toLowerCase();
+            currentSearchedWord = word;
+            llmOutput.classList.add('hidden'); // Hide previous LLM output
+
+            if (word === "") {
+                definitionOutput.innerHTML = `<p class="text-gray-800 text-base leading-relaxed">Please enter a word to search.</p>`;
+                favoriteButton.classList.add('hidden');
+                elaborateDefinitionButton.classList.add('hidden');
+                explainSimpleButton.classList.add('hidden');
+                return;
+            }
+
+            const wordData = dictionary[word];
+            if (wordData) {
+                definitionOutput.innerHTML = `<span class="font-semibold capitalize text-xl">${word}:</span> <p class="text-gray-800 text-base leading-relaxed">${wordData.definition}</p>`;
+                favoriteButton.classList.remove('hidden');
+                elaborateDefinitionButton.classList.remove('hidden');
+                explainSimpleButton.classList.remove('hidden');
+
+                const starIcon = favoriteButton.querySelector('i');
+                if (wordData.isFavorite) {
+                    starIcon.classList.remove('far', 'text-gray-400');
+                    starIcon.classList.add('fas', 'text-gray-700'); /* Changed to dark gray for favorite */
+                }
+                else {
+                    starIcon.classList.remove('fas', 'text-gray-700');
+                    starIcon.classList.add('far', 'text-gray-400');
+                }
+            } else {
+                definitionOutput.innerHTML = `<p class="text-gray-800 text-base leading-relaxed">"${word}" not found. Try adding it! <br> (You can add it by favoriting it)</p>`;
+                favoriteButton.classList.remove('hidden');
+                elaborateDefinitionButton.classList.add('hidden'); // Hide LLM buttons if word not found
+                explainSimpleButton.classList.add('hidden'); // Hide LLM buttons if word not found
+
+                const starIcon = favoriteButton.querySelector('i');
+                starIcon.classList.remove('fas', 'text-gray-700');
+                starIcon.classList.add('far', 'text-gray-400');
+            }
+        }
+
+        /**
+         * Toggles the favorite status of a given word.
+         * If the word doesn't exist, it adds it to the dictionary and marks as favorite.
+         * @param {string} word - The word to toggle favorite status for.
+         * @param {boolean} [silent=false] - If true, no message box will be shown.
+         */
+        function toggleFavorite(word, silent = false) {
+            if (!dictionary[word]) {
+                dictionary[word] = { definition: "No definition provided. Add one in settings if you wish.", isFavorite: true };
+                saveDictionary();
+                searchWord();
+                displayFavoritesInSettings();
+                if (!silent) {
+                    showMessageBox(`"${word}" has been added to your dictionary and marked as favorite.`);
+                }
+                return;
+            }
+
+            dictionary[word].isFavorite = !dictionary[word].isFavorite;
+            saveDictionary();
+            searchWord();
+            displayFavoritesInSettings();
+            if (!silent) {
+                showMessageBox(`${word} has been ${dictionary[word].isFavorite ? 'added to' : 'removed from'} favorites.`);
+            }
+        }
+
+        /**
+         * Toggles the visibility of the favorite words list in the settings modal.
+         */
+        function toggleFavoritesListVisibility() {
+            favoritesListVisible = !favoritesListVisible;
+            if (favoritesListVisible) {
+                settingsFavoriteWordsList.classList.remove('hidden');
+                favoritesToggleIcon.classList.remove('fa-chevron-down');
+                favoritesToggleIcon.classList.add('fa-chevron-up');
+                displayFavoritesInSettings();
+            } else {
+                settingsFavoriteWordsList.classList.add('hidden');
+                favoritesToggleIcon.classList.remove('fa-chevron-up');
+                favoritesToggleIcon.classList.add('fa-chevron-down');
+            }
+        }
+
+        /**
+         * Displays the list of favorited words in the settings modal.
+         */
+        function displayFavoritesInSettings() {
+            settingsFavoriteWordsList.innerHTML = '';
+
+            const favorites = Object.keys(dictionary).filter(word => dictionary[word].isFavorite);
+
+            if (favorites.length === 0) {
+                settingsFavoriteWordsList.innerHTML = '<p class="text-gray-600 text-sm">No favorite words yet.</p>';
+                return;
+            }
+
+            const ul = document.createElement('ul');
+            ul.className = 'space-y-2';
+            favorites.sort().forEach(word => {
+                const li = document.createElement('li');
+                // Explicitly setting light mode background and dark mode background
+                li.className = 'flex justify-between items-center bg-gray-100 p-2 rounded-md shadow-sm dark:bg-gray-700';
+
+                const wordButton = document.createElement('button');
+                // Explicitly setting light mode text color and dark mode text color
+                wordButton.className = 'text-gray-800 font-medium flex-grow text-left pr-2 focus:outline-none focus:ring-2 focus:ring-gray-400 rounded-md py-1 px-2 -ml-2 dark:text-gray-100';
+                wordButton.textContent = word;
+                wordButton.onclick = () => {
+                    wordInput.value = word;
+                    searchWord();
+                    settingsModal.classList.add('hidden');
+                    wordGameModal.classList.add('hidden');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                };
+
+                const removeButton = document.createElement('button');
+                removeButton.className = 'text-red-500 dark:text-red-300 hover:text-red-700 dark:hover:text-red-100 transition duration-200 p-1 rounded-full';
+                removeButton.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                removeButton.title = `Remove "${word}" from favorites`;
+                removeButton.onclick = (event) => {
+                    event.stopPropagation();
+                    toggleFavorite(word, true);
+                    showMessageBox(`"${word}" has been removed from favorites.`);
+                };
+
+                li.appendChild(wordButton);
+                li.appendChild(removeButton);
+                ul.appendChild(li);
+            });
+            settingsFavoriteWordsList.appendChild(ul);
+        }
+
+        /**
+         * Clears all dictionary data from localStorage and resets the app.
+         */
+        function clearAllData() {
+            messageText.textContent = "Are you sure you want to clear all dictionary data? This action cannot be undone.";
+            messageBox.classList.remove('hidden');
+            messageBoxButtons.innerHTML = '';
+
+            const confirmClearButton = document.createElement('button');
+            confirmClearButton.textContent = 'Yes, Clear';
+            confirmClearButton.className = 'btn-danger mr-2';
+            confirmClearButton.onclick = () => {
+                localStorage.removeItem('offlineDictionary');
+                dictionary = {};
+                loadDictionary();
+                searchWord();
+                settingsModal.classList.add('hidden');
+                showMessageBox("All dictionary data has been cleared.");
+                displayFavoritesInSettings();
+            };
+
+            const cancelClearButton = document.createElement('button');
+            cancelClearButton.textContent = 'No, Cancel';
+            cancelClearButton.className = 'btn-secondary';
+            cancelClearButton.onclick = () => {
+                messageBox.classList.add('hidden');
+                messageBoxButtons.innerHTML = '';
+                messageBoxButtons.appendChild(closeMessageButton);
+            };
+
+            messageBoxButtons.appendChild(confirmClearButton);
+            messageBoxButtons.appendChild(cancelClearButton);
+        }
+
+        /**
+         * Applies the selected theme (light or dark) to the document.
+         * @param {string} theme - 'light' or 'dark'.
+         */
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+                themeText.textContent = 'Switch to Day Mode';
+            } else {
+                document.documentElement.classList.remove('dark');
+                themeIcon.classList.remove('fa-sun');
+                themeIcon.classList.add('fa-moon');
+                themeText.textContent = 'Switch to Night Mode';
+            }
+            localStorage.setItem('theme', theme);
+        }
+
+        /**
+         * Toggles between light and dark themes.
+         */
+        function toggleTheme() {
+            const currentTheme = localStorage.getItem('theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            applyTheme(newTheme);
+            displayFavoritesInSettings();
+        }
+
+        /**
+         * Loads the saved theme preference on page load.
+         */
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            applyTheme(savedTheme);
+        }
+
+        // --- Guess The Word Game Logic ---
+
+        /**
+         * Selects a random word from the dictionary for the game.
+         * Prioritizes words with actual definitions.
+         * @returns {string|null} The selected word, or null if no suitable words.
+         */
+        function selectWordGameWord() {
+            const availableWords = Object.keys(dictionary).filter(word =>
+                dictionary[word].definition && dictionary[word].definition !== "No definition provided. Add one in settings if you wish." && word.length > 2
+            );
+
+            if (availableWords.length === 0) {
+                gameMessage.textContent = "No words available for the game. Add more words to your dictionary!";
+                return null;
+            }
+
+            const randomIndex = Math.floor(Math.random() * availableWords.length);
+            return availableWords[randomIndex];
+        }
+
+        /**
+         * Initializes the Guess The Word game state and UI.
+         */
+        function startWordGame() {
+            wordGameWord = selectWordGameWord();
+            if (!wordGameWord) {
+                wordGameModal.classList.add('hidden');
+                showMessageBox("Cannot start game: No suitable words in dictionary.");
+                return;
+            }
+
+            wordGameMaskedWord = Array(wordGameWord.length).fill('_');
+            wordGameGuessedLetters = new Set();
+            wordGameIncorrectGuesses = 0;
+            updateWordGameUI();
+            gameMessage.textContent = "Guess a letter or the whole word!";
+            guessInput.value = '';
+            guessInput.disabled = false;
+            submitGuessButton.disabled = false;
+
+            settingsModal.classList.add('hidden');
+            wordGameModal.classList.remove('hidden');
+        }
+
+        /**
+         * Updates the Guess The Word game UI elements (masked word, guesses left).
+         */
+        function updateWordGameUI() {
+            maskedWordDisplay.textContent = wordGameMaskedWord.join(' ');
+            guessesLeftDisplay.textContent = maxIncorrectGuesses - wordGameIncorrectGuesses;
+        }
+
+        /**
+         * Processes a user's guess for Guess The Word game.
+         */
+        function processWordGuess() {
+            const guess = guessInput.value.trim().toLowerCase();
+            guessInput.value = '';
+
+            if (guess.length === 0) {
+                gameMessage.textContent = "Please enter a guess.";
+                return;
+            }
+
+            if (guess.length === 1) { // Single letter guess
+                if (wordGameGuessedLetters.has(guess)) {
+                    gameMessage.textContent = `You already guessed "${guess}". Try a new letter!`;
+                    return;
+                }
+                wordGameGuessedLetters.add(guess);
+
+                let found = false;
+                for (let i = 0; i < wordGameWord.length; i++) {
+                    if (wordGameWord[i] === guess) {
+                        wordGameMaskedWord[i] = guess;
+                        found = true;
+                    }
+                }
+
+                if (found) {
+                    gameMessage.textContent = `Good guess! "${guess}" is in the word.`;
+                } else {
+                    wordGameIncorrectGuesses++;
+                    gameMessage.textContent = `Sorry, "${guess}" is not in the word.`;
+                }
+            } else { // Full word guess
+                if (guess === wordGameWord) {
+                    wordGameMaskedWord = wordGameWord.split('');
+                    gameMessage.textContent = `Congratulations! You guessed the word "${wordGameWord}"!`;
+                    endWordGame(true);
+                    return;
+                } else {
+                    wordGameIncorrectGuesses++;
+                    gameMessage.textContent = `Incorrect word guess. You lose a guess!`;
+                }
+            }
+
+            updateWordGameUI();
+            checkWordGameStatus();
+        }
+
+        /**
+         * Checks if the Guess The Word game is won, lost, or continues.
+         */
+        function checkWordGameStatus() {
+            if (wordGameMaskedWord.join('') === wordGameWord) {
+                gameMessage.textContent = `Congratulations! You guessed the word "${wordGameWord}"!`;
+                endWordGame(true);
+            } else if (wordGameIncorrectGuesses >= maxIncorrectGuesses) {
+                gameMessage.textContent = `Game Over! The word was "${wordGameWord}".`;
+                endWordGame(false);
+            }
+        }
+
+        /**
+         * Ends the current Guess The Word game.
+         * @param {boolean} won - True if the player won, false otherwise.
+         */
+        function endWordGame(won) {
+            guessInput.disabled = true;
+            submitGuessButton.disabled = true;
+        }
+
+        // --- Gemini API Integration ---
+
+        /**
+         * Calls the Gemini API to get an elaborate definition and example sentences.
+         * @param {string} word - The word to get information for.
+         */
+        async function getElaborateDefinition(word) {
+            llmOutput.classList.remove('hidden');
+            llmOutput.innerHTML = '<p class="text-center animate-pulse">✨ Getting elaborate definition...</p>';
+            elaborateDefinitionButton.disabled = true;
+            explainSimpleButton.disabled = true;
+
+            try {
+                let chatHistory = [];
+                const prompt = `Provide a detailed definition for the word '${word}' and three example sentences using it. Format as: Definition: [def]\\nExamples:\\n1. [ex1]\\n2. [ex2]\\n3. [ex3]`;
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // Canvas will inject the API key at runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+                }
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    llmOutput.innerHTML = `<h4 class="font-semibold mb-2">Elaborate Definition for "${word}":</h4><p>${text.replace(/\n/g, '<br>')}</p>`;
+                } else {
+                    llmOutput.innerHTML = '<p class="text-red-500">✨ Could not get elaborate definition. Please try again.</p>';
+                }
+            } catch (error) {
+                console.error("Error fetching elaborate definition:", error);
+                llmOutput.innerHTML = `<p class="text-red-500">✨ Error: ${error.message}. Failed to get elaborate definition.</p>`;
+            } finally {
+                elaborateDefinitionButton.disabled = false;
+                explainSimpleButton.disabled = false;
+            }
+        }
+
+        /**
+         * Calls the Gemini API to get a simplified explanation of a word.
+         * @param {string} word - The word to simplify.
+         */
+        async function getSimplifiedExplanation(word) {
+            llmOutput.classList.remove('hidden');
+            llmOutput.innerHTML = '<p class="text-center animate-pulse">✨ Simplifying explanation...</p>';
+            elaborateDefinitionButton.disabled = true;
+            explainSimpleButton.disabled = true;
+
+            try {
+                let chatHistory = [];
+                const prompt = `Explain the word '${word}' in very simple terms, as if explaining to a 5th grader. Keep it concise.`;
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // Canvas will inject the API key at runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+                }
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    llmOutput.innerHTML = `<h4 class="font-semibold mb-2">Simple Explanation for "${word}":</h4><p>${text}</p>`;
+                } else {
+                    llmOutput.innerHTML = '<p class="text-red-500">✨ Could not simplify explanation. Please try again.</p>';
+                }
+            } catch (error) {
+                console.error("Error fetching simplified explanation:", error);
+                llmOutput.innerHTML = `<p class="text-red-500">✨ Error: ${error.message}. Failed to simplify explanation.</p>`;
+            } finally {
+                elaborateDefinitionButton.disabled = false;
+                explainSimpleButton.disabled = false;
+            }
+        }
+
+
+        // --- Event Listeners ---
+        searchButton.addEventListener('click', searchWord);
+        wordInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                searchWord();
+            }
+        });
+        favoriteButton.addEventListener('click', () => {
+            if (currentSearchedWord) {
+                toggleFavorite(currentSearchedWord);
+            } else {
+                showMessageBox("Please type a word in the search box first to favorite it.");
+            }
+        });
+
+        // LLM button event listeners
+        elaborateDefinitionButton.addEventListener('click', () => {
+            if (currentSearchedWord) {
+                getElaborateDefinition(currentSearchedWord);
+            } else {
+                showMessageBox("Please search for a word first.");
+            }
+        });
+
+        explainSimpleButton.addEventListener('click', () => {
+            if (currentSearchedWord) {
+                getSimplifiedExplanation(currentSearchedWord);
+            } else {
+                showMessageBox("Please search for a word first.");
+            }
+        });
+
+
+        // Settings Modal Event Listeners
+        settingsButton.addEventListener('click', () => {
+            favoritesListVisible = false;
+            settingsFavoriteWordsList.classList.add('hidden');
+            favoritesToggleIcon.classList.remove('fa-chevron-up');
+            favoritesToggleIcon.classList.add('fa-chevron-down');
+
+            displayFavoritesInSettings();
+            settingsModal.classList.remove('hidden');
+        });
+
+        closeSettingsButton.addEventListener('click', () => {
+            settingsModal.classList.add('hidden');
+        });
+
+        clearDataButton.addEventListener('click', clearAllData);
+        themeToggleButton.addEventListener('click', toggleTheme);
+        toggleFavoritesButton.addEventListener('click', toggleFavoritesListVisibility);
+
+        // Game Event Listeners
+        playWordGameButton.addEventListener('click', startWordGame);
+        submitGuessButton.addEventListener('click', processWordGuess);
+        guessInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                processWordGuess();
+            }
+        });
+        restartWordGameButton.addEventListener('click', startWordGame);
+        closeWordGameButton.addEventListener('click', () => {
+            wordGameModal.classList.add('hidden');
+        });
+
+        // Load dictionary and theme when the page loads
+        window.onload = () => {
+            loadDictionary();
+            loadTheme();
+        };
+    </script>
+</body>
+</html>
